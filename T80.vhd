@@ -160,6 +160,8 @@ architecture rtl of T80 is
 	signal MULU_Prod32          : std_logic_vector(31 downto 0);
 	signal MULU_tmp             : std_logic_vector(31 downto 0);
 	signal MULU_Fakt1           : std_logic_vector(15 downto 0);
+	signal MULU_Byte            : std_logic;                     -- '1' => last MULU was MULUB
+	signal ALU_IR               : std_logic_vector(5 downto 0);  -- IR seen by the ALU (R800: SLL => SLA)
 
 	signal ID16                 : signed(15 downto 0);
 	signal Save_Mux             : std_logic_vector(7 downto 0);
@@ -348,6 +350,10 @@ begin
 			No_PC       => No_PC,
 			XYbit_undoc => XYbit_undoc);
 
+	-- R800: the undocumented SLL (CB 30-37) works as SLA
+	ALU_IR <= IR(5) & '0' & IR(3 downto 0) when R800_mode = '1' and ISet = "01" and IR(7 downto 3) = "00110" else
+	          IR(5 downto 0);
+
 	alu : T80_ALU
 		generic map(
 			Mode   => Mode,
@@ -366,7 +372,7 @@ begin
 			XY_State=> XY_State,
 			ALU_Op  => ALU_Op_r,
 			Rot_Akku    => Rot_Akku,
-			IR      => IR(5 downto 0),
+			IR      => ALU_IR,
 			ISet    => ISet,
 			BusA    => BusA,
 			BusB    => BusB,
@@ -394,6 +400,7 @@ begin
 		variable ioq : std_logic_vector(8 downto 0);
 		variable temp_c : unsigned(8 downto 0);
 		variable temp_h : unsigned(4 downto 0);
+		variable F_load : boolean;	-- F loaded as a whole (POP AF, EX AF,AF')
 	begin
 		if RESET_n = '0' then
 			PC <= (others => '0');  -- Program Counter
@@ -445,6 +452,7 @@ begin
 				IStatus <= DIR(209 downto 208);
 
 			elsif ClkEn = '1' then
+				F_load := false;
 				ALU_Op_r <= "0000";
 				Save_ALU_r <= '0';
 				Read_To_Reg_r <= "00000";
@@ -670,7 +678,9 @@ begin
 								-- CCF
 								F(Flag_C) <= not F(Flag_C);
 								F(Flag_Y) <= ACC(5);
-								F(Flag_H) <= F(Flag_C);
+								if R800_mode = '0' then		-- R800: H unchanged
+									F(Flag_H) <= F(Flag_C);
+								end if;
 								F(Flag_X) <= ACC(3);
 								F(Flag_N) <= '0';
 							end if;
@@ -745,6 +755,7 @@ begin
 						ACC <= Ap;
 						Fp <= F;
 						F <= Fp;
+						F_load := true;
 					end if;
 					if ExchangeRS = '1' then
 						Alternate <= not Alternate;
@@ -815,6 +826,24 @@ begin
 						if PreserveC_r = '0' then
 							F(Flag_C) <= F_Out(0);
 						end if;
+						if R800_mode = '1' and ALU_Op_r = "1001" then
+							-- R800 BIT: S and P/V unchanged
+							F(Flag_S) <= F(Flag_S);
+							F(Flag_P) <= F(Flag_P);
+						end if;
+					end if;
+				end if;
+
+				-- R800 MULUB/MULUW: S,V reset, Z if zero, C if it doesn't fit, H,N unchanged
+				if I_MULU = '1' and T_Res = '1' then
+					F(Flag_S) <= '0';
+					F(Flag_P) <= '0';
+					if MULU_Byte = '1' then
+						if MULU_Prod32(31 downto 16) = x"0000" then F(Flag_Z) <= '1'; else F(Flag_Z) <= '0'; end if;
+						if MULU_Prod32(31 downto 24) /= x"00" then F(Flag_C) <= '1'; else F(Flag_C) <= '0'; end if;
+					else
+						if MULU_Prod32 = x"00000000" then F(Flag_Z) <= '1'; else F(Flag_Z) <= '0'; end if;
+						if MULU_Prod32(31 downto 16) /= x"0000" then F(Flag_C) <= '1'; else F(Flag_C) <= '0'; end if;
 					end if;
 				end if;
 				if T_Res = '1' and I_INRC = '1' then
@@ -890,11 +919,19 @@ begin
 						else
 							F <= Save_Mux;
 						end if;
+						F_load := true;
 					when others =>
 					end case;
 					if XYbit_undoc='1' then
 						DO <= ALU_Q;
 					end if;
+				end if;
+
+				-- R800: the undocumented X/Y flags are never changed by an instruction,
+				-- only loaded with F (POP AF, EX AF,AF')
+				if R800_mode = '1' and not F_load then
+					F(Flag_X) <= F(Flag_X);
+					F(Flag_Y) <= F(Flag_Y);
 				end if;
 			end if;
 		end if;
@@ -914,6 +951,7 @@ begin
 		if rising_edge(CLK_n) then
 			if ClkEn = '1' then
 				if T_Res='1' then
+					MULU_Byte <= I_MULUB;
 					if I_MULUB='1' then
 						MULU_Prod32(7 downto 0) <= ACC;
 						MULU_Prod32(15 downto 8) <= "--------";
