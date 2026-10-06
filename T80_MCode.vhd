@@ -2196,7 +2196,8 @@ begin
 					MCycles <= "010";
 					case to_integer(unsigned(MCycle)) is
 					when 1 =>
-						NoRead <= '1';
+						-- no NoRead here: these MCycle 1 outputs are still active
+						-- during the next opcode fetch (IR not yet reloaded)
 						I_MULUB <= '1';
 						Set_BusB_To(2 downto 0) <= IR(5 downto 3);
 						Set_BusB_To(3) <= '0';
@@ -2213,7 +2214,6 @@ begin
 					MCycles <= "010";
 					case to_integer(unsigned(MCycle)) is
 					when 1 =>
-					NoRead <= '1';
 						if DPAIR = "11" then
 							Set_BusB_To(3 downto 0) <= "1000";
 						else
@@ -2226,7 +2226,7 @@ begin
 						TStates <= "101";
 						NoRead <= '1';
 						I_MULU <= '1';
-						Set_BusA_To(2 downto 0) <= "100";
+						Set_BusA_To(2 downto 0) <= "010";	-- high word to DE (low word to HL at TState 4)
 					when others => null;
 					end case;
 				end if;

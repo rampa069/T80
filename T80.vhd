@@ -927,7 +927,11 @@ begin
 					else
 						MULU_Prod32(15 downto 0) <= RegBusA;
 						MULU_Prod32(31 downto 16) <= X"0000";
-						MULU_Fakt1 <= RegBusB;
+						if Set_BusB_To = "1000" then
+							MULU_Fakt1 <= std_logic_vector(SP);		-- MULUW HL,SP (SP is not in the register file)
+						else
+							MULU_Fakt1 <= RegBusB;
+						end if;
 					end if;
 				else
 					MULU_Prod32 <= MULU_tmp;
@@ -991,7 +995,9 @@ begin
 				(TState = 3 and MCycle = "001" and IncDec_16(2) = '1')) and IncDec_16(1 downto 0) = "10" else
 			-- EX HL,DL
 			Alternate & "10" when ExchangeDH = '1' and TState = 3 else
-			Alternate & "01" when (ExchangeDH = '1' or I_MULU = '1') and TState = 4 else
+			Alternate & "01" when ExchangeDH = '1' and TState = 4 else
+			-- MULUW: low word to HL (high word to DE at T_Res)
+			Alternate & "10" when I_MULU = '1' and TState = 4 else
 			-- EX (SP),HL (HL(IX,IY) <= WZ)
 			Alternate & "10" when ExchangeWH = '1' and XY_State = "00" and TState = 4 else
 			XY_State(1) & "11" when ExchangeWH = '1' and TState = 4 else
