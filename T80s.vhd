@@ -79,6 +79,7 @@ entity T80s is
 	);
 	port(
 		RESET_n : in std_logic;
+		R800_mode : in std_logic := '0';  -- R800 extensions (MULUB/MULUW, flags, timing)
 		CLK     : in std_logic;
 		CEN     : in std_logic := '1';
 		WAIT_n  : in std_logic := '1';
@@ -117,6 +118,7 @@ begin
 		Mode => Mode,
 		IOWait => IOWait)
 	port map(
+		R800_mode => R800_mode,
 		CEN => CEN,
 		M1_n => M1_n,
 		IORQ => IORQ,
