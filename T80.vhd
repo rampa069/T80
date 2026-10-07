@@ -164,6 +164,10 @@ architecture rtl of T80 is
 	signal MULU_Fakt1           : std_logic_vector(15 downto 0);
 	signal MULU_Byte            : std_logic;                     -- '1' => last MULU was MULUB
 	signal ALU_IR               : std_logic_vector(5 downto 0);  -- IR seen by the ALU (R800: SLL => SLA)
+	signal R800_BlkIO           : std_logic;                     -- R800: INI/IND/OUTI/OUTD (and repeats)
+	signal R800_BlkF            : std_logic_vector(7 downto 0);  -- R800: flags before the block I/O
+	signal R800_BlkAct          : std_logic;
+	signal R800_SllXY           : std_logic;                     -- R800: DD/FD CB d 30-37
 
 	signal ID16                 : signed(15 downto 0);
 	signal Save_Mux             : std_logic_vector(7 downto 0);
@@ -356,6 +360,11 @@ begin
 			XYbit_undoc => XYbit_undoc);
 
 	-- R800: the undocumented SLL (CB 30-37) works as SLA
+	-- R800: INI/IND/OUTI/OUTD and the repeats only set Z (B = 0) and N
+	R800_BlkIO <= '1' when R800_mode = '1' and ISet = "10" and IR(7 downto 5) = "101" and IR(2 downto 1) = "01" else '0';
+	-- R800: the undocumented SLL (IX+d) does not write, it only sets the flags
+	R800_SllXY <= '1' when R800_mode = '1' and ISet = "01" and XY_State /= "00" and IR(7 downto 3) = "00110" else '0';
+
 	ALU_IR <= IR(5) & '0' & IR(3 downto 0) when R800_mode = '1' and ISet = "01" and IR(7 downto 3) = "00110" else
 	          IR(5 downto 0);
 
@@ -813,7 +822,11 @@ begin
 						when "10" =>
 							I <= ACC;
 						when others =>
-							R <= unsigned(ACC);
+							if R800_mode = '1' then
+								R <= unsigned(ACC) - 1;		-- R800: XOR A / LD R,A / LD A,R gives 1 (Z80: 2)
+							else
+								R <= unsigned(ACC);
+							end if;
 						end case;
 					end if;
 				end if;
@@ -930,6 +943,29 @@ begin
 					if XYbit_undoc='1' then
 						DO <= ALU_Q;
 					end if;
+				end if;
+
+				-- R800 block I/O: S, H, P/V and C as before the instruction, N set (Z from B)
+				if MCycle = "001" and TState = 3 then
+					R800_BlkAct <= R800_BlkIO;
+					R800_BlkF   <= F;
+				end if;
+				if R800_BlkAct = '1' and not (MCycle = "001" and TState = 3) then
+					F(Flag_S) <= R800_BlkF(Flag_S);
+					F(Flag_H) <= R800_BlkF(Flag_H);
+					F(Flag_P) <= R800_BlkF(Flag_P);
+					F(Flag_C) <= R800_BlkF(Flag_C);
+					F(Flag_N) <= '1';
+				end if;
+
+				-- R800 SLL (IX+d): C from bit 7 of A, S/Z/H/P/N reset, nothing written
+				if R800_SllXY = '1' and MCycle = "010" and T_Res = '1' then
+					F(Flag_S) <= '0';
+					F(Flag_Z) <= '0';
+					F(Flag_H) <= '0';
+					F(Flag_P) <= '0';
+					F(Flag_N) <= '0';
+					F(Flag_C) <= ACC(7);
 				end if;
 
 				-- R800: the undocumented X/Y flags are never changed by an instruction,

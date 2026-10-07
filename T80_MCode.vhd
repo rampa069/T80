@@ -1581,6 +1581,16 @@ begin
 					  Read_To_Reg <= '1';
 					  Save_ALU <= '1';
 					end if;
+				elsif R800_mode = '1' and IRB(7 downto 3) = "00110" then
+				-- R800 SLL (IX+d),Reg: reads, does not write (flags in T80.vhd)
+					MCycles <= "010";
+					case to_integer(unsigned(MCycle)) is
+					when 1 | 7 =>
+						Set_Addr_To <= aXY;
+					when 2 =>
+						TStates <= "100";
+					when others => null;
+					end case;
 				else
 				-- R/S (IX+d),Reg, undocumented
 					MCycles <= "011";
@@ -1610,14 +1620,20 @@ begin
 				-- SLA (HL)
 				-- SLL (HL) (Undocumented) / SWAP (HL)
 				MCycles <= "011";
+				if R800_mode = '1' and XY_State /= "00" and IRB = "00110110" then
+					-- R800 SLL (IX+d): reads, does not write (flags in T80.vhd)
+					MCycles <= "010";
+				end if;
 				case to_integer(unsigned(MCycle)) is
 				when 1 | 7 =>
 					Set_Addr_To <= aXY;
 				when 2 =>
-					ALU_Op <= "1000";
-					Read_To_Reg <= '1';
-					Save_ALU <= '1';
-					Set_Addr_To <= aXY;
+					if not (R800_mode = '1' and XY_State /= "00" and IRB = "00110110") then
+						ALU_Op <= "1000";
+						Read_To_Reg <= '1';
+						Save_ALU <= '1';
+						Set_Addr_To <= aXY;
+					end if;
 					TStates <= "100";
 				when 3 =>
 					Write <= '1';
