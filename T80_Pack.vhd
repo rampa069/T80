@@ -79,7 +79,9 @@ package T80_Pack is
 		Flag_H : integer := 4;
 		Flag_Y : integer := 5;
 		Flag_Z : integer := 6;
-		Flag_S : integer := 7
+		Flag_S : integer := 7;
+		MulDlyB : integer := 6;
+		MulDlyW : integer := 42
 	);
 	port(
 		RESET_n         : in std_logic;

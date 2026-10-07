@@ -93,7 +93,9 @@ entity T80 is
 		Flag_H : integer := 4;
 		Flag_Y : integer := 5;
 		Flag_Z : integer := 6;
-		Flag_S : integer := 7
+		Flag_S : integer := 7;
+		MulDlyB : integer := 6;   -- R800 MULUB idle clocks (6 at 10.74MHz, 34 at 21.48MHz)
+		MulDlyW : integer := 42   -- R800 MULUW idle clocks (42 at 10.74MHz, 107 at 21.48MHz)
 	);
 	port(
 		RESET_n    : in  std_logic;
@@ -258,7 +260,7 @@ architecture rtl of T80 is
 	signal I_MULUB              : std_logic;
 	signal I_MULU               : std_logic;
 	signal I_MULDLY             : std_logic;
-	signal MulDly_Cnt           : unsigned(5 downto 0);
+	signal MulDly_Cnt           : unsigned(6 downto 0);
 	signal SetWZ                : std_logic_vector(1 downto 0);
 	signal SetDI                : std_logic;
 	signal SetEI                : std_logic;
@@ -1333,8 +1335,8 @@ begin
 						BusAck <= '0';
 						if TState = 2 and Really_Wait = '1' then
 						elsif T_Res = '1' and I_MULDLY = '1' and
-							((IR(1) = '1' and MulDly_Cnt /= 42) or (IR(1) = '0' and MulDly_Cnt /= 6)) then
-							-- R800 MULUW (36 cycles) / MULUB (14 cycles) at 10.74MHz: hold the idle M-cycle
+							((IR(1) = '1' and MulDly_Cnt /= MulDlyW) or (IR(1) = '0' and MulDly_Cnt /= MulDlyB)) then
+							-- R800 MULUW (36 cycles) / MULUB (14 cycles): hold the idle M-cycle (MulDlyW / MulDlyB clocks)
 							MulDly_Cnt <= MulDly_Cnt + 1;
 						elsif T_Res = '1' then
 							MulDly_Cnt <= (others => '0');

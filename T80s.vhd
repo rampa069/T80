@@ -75,7 +75,9 @@ entity T80s is
 	generic(
 		Mode    : integer := 0; -- 0 => Z80, 1 => Fast Z80, 2 => 8080, 3 => GB
 		T2Write : integer := 1; -- 0 => WR_n active in T3, /=0 => WR_n active in T2
-		IOWait  : integer := 1  -- 0 => Single cycle I/O, 1 => Std I/O cycle
+		IOWait  : integer := 1; -- 0 => Single cycle I/O, 1 => Std I/O cycle
+		MulDlyB : integer := 6; -- R800 MULUB idle clocks (14 R800 cycles)
+		MulDlyW : integer := 42 -- R800 MULUW idle clocks (36 R800 cycles)
 	);
 	port(
 		RESET_n : in std_logic;
@@ -116,7 +118,9 @@ begin
 	u0 : T80
 	generic map(
 		Mode => Mode,
-		IOWait => IOWait)
+		IOWait => IOWait,
+		MulDlyB => MulDlyB,
+		MulDlyW => MulDlyW)
 	port map(
 		R800_mode => R800_mode,
 		CEN => CEN,
