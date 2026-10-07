@@ -257,6 +257,8 @@ architecture rtl of T80 is
 	signal I_INRC               : std_logic;
 	signal I_MULUB              : std_logic;
 	signal I_MULU               : std_logic;
+	signal I_MULDLY             : std_logic;
+	signal MulDly_Cnt           : unsigned(5 downto 0);
 	signal SetWZ                : std_logic_vector(1 downto 0);
 	signal SetDI                : std_logic;
 	signal SetEI                : std_logic;
@@ -339,6 +341,7 @@ begin
 			I_INRC      => I_INRC,
 			I_MULUB     => I_MULUB,
 			I_MULU      => I_MULU,
+			I_MULDLY    => I_MULDLY,
 			SetWZ       => SetWZ,
 			SetDI       => SetDI,
 			SetEI       => SetEI,
@@ -1270,6 +1273,7 @@ begin
 			TState <= "000";
 			Pre_XY_F_M <= "000";
 			Halt_FF <= '0';
+			MulDly_Cnt <= (others => '0');
 			--BusAck <= '0';
 			NMICycle <= '0';
 			IntCycle <= '0';
@@ -1328,7 +1332,12 @@ begin
 					else
 						BusAck <= '0';
 						if TState = 2 and Really_Wait = '1' then
+						elsif T_Res = '1' and I_MULDLY = '1' and
+							((IR(1) = '1' and MulDly_Cnt /= 42) or (IR(1) = '0' and MulDly_Cnt /= 6)) then
+							-- R800 MULUW (36 cycles) / MULUB (14 cycles) at 10.74MHz: hold the idle M-cycle
+							MulDly_Cnt <= MulDly_Cnt + 1;
 						elsif T_Res = '1' then
+							MulDly_Cnt <= (others => '0');
 							if Halt = '1' and  ( not(Mode = 3 and INT_n = '0' and IntE_FF1 = '0')) then  -- halt bug when Mode = 3 , INT_n = '0' and IME=0
 								Halt_FF <= '1';
 							end if;

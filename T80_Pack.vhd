@@ -203,6 +203,7 @@ package T80_Pack is
 		I_INRC                  : out std_logic;
 		I_MULUB                 : out std_logic;
 		I_MULU                  : out std_logic;
+		I_MULDLY                : out std_logic;
 		SetWZ                   : out std_logic_vector(1 downto 0);
 		SetDI                   : out std_logic;
 		SetEI                   : out std_logic;

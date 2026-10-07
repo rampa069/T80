@@ -144,6 +144,7 @@ entity T80_MCode is
       I_INRC      : out std_logic;
       I_MULUB     : out std_logic;
       I_MULU      : out std_logic;
+      I_MULDLY    : out std_logic;   -- R800: idle M-cycle after a MULU (R800 MULUB/MULUW timing)
       SetWZ       : out std_logic_vector(1 downto 0);
       SetDI       : out std_logic;
       SetEI       : out std_logic;
@@ -252,6 +253,7 @@ begin
 		I_INRC <= '0';
 		I_MULUB <= '0';
 		I_MULU <= '0';
+		I_MULDLY <= '0';
 		SetDI <= '0';
 		SetEI <= '0';
 		IMode <= "11";
@@ -2193,7 +2195,7 @@ begin
 			when "11000001"|"11001001"|"11010001"|"11011001" =>
 				 --R800 MULUB
 				if R800_mode = '1' then
-					MCycles <= "010";
+					MCycles <= "011";
 					case to_integer(unsigned(MCycle)) is
 					when 1 =>
 						-- no NoRead here: these MCycle 1 outputs are still active
@@ -2205,13 +2207,17 @@ begin
 						NoRead <= '1';
 						I_MULU <= '1';
 						Set_BusA_To(2 downto 0) <= "100";
+					when 3 =>
+						-- idle M-cycle stretched to the R800 MULUB time (see T80.vhd)
+						NoRead <= '1';
+						I_MULDLY <= '1';
 					when others => null;
 					end case;
 				end if;
 			when "11000011"|"11110011" =>
 				--R800 MULUW
 				if R800_mode = '1' then
-					MCycles <= "010";
+					MCycles <= "011";
 					case to_integer(unsigned(MCycle)) is
 					when 1 =>
 						if DPAIR = "11" then
@@ -2227,6 +2233,10 @@ begin
 						NoRead <= '1';
 						I_MULU <= '1';
 						Set_BusA_To(2 downto 0) <= "010";	-- high word to DE (low word to HL at TState 4)
+					when 3 =>
+						-- idle M-cycle stretched to the R800 MULUW time (see T80.vhd)
+						NoRead <= '1';
+						I_MULDLY <= '1';
 					when others => null;
 					end case;
 				end if;
